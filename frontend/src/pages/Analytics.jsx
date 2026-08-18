@@ -6,9 +6,9 @@ import {
   Package,
   ShoppingCart,
   Truck,
+  AlertTriangle,
 } from "lucide-react";
 import ModuleHeader from "../components/ModuleHeader";
-
 import API_URL from "../config";
 
 function Analytics() {
@@ -21,13 +21,23 @@ function Analytics() {
       setLoading(true);
       setError("");
 
+      console.log("Analytics API URL:", API_URL);
+
       const response = await axios.get(
         `${API_URL}/api/analytics/`
       );
 
+      console.log("Analytics response:", response.data);
+
       setAnalytics(response.data);
     } catch (err) {
       console.error("Analytics API error:", err);
+
+      if (err.response) {
+        console.error("Server response:", err.response.data);
+        console.error("Status:", err.response.status);
+      }
+
       setError("Unable to load warehouse analytics.");
     } finally {
       setLoading(false);
@@ -64,7 +74,14 @@ function Analytics() {
         />
 
         <div className="module-panel">
-          <h2>{error || "No analytics data available."}</h2>
+          <div className="dashboard-error">
+            <AlertTriangle size={22} />
+
+            <div>
+              <strong>Dashboard connection failed</strong>
+              <p>{error || "No analytics data available."}</p>
+            </div>
+          </div>
 
           <button
             className="module-action"
@@ -77,440 +94,233 @@ function Analytics() {
     );
   }
 
-  const inventory = analytics.inventory;
-  const orders = analytics.orders;
+  const inventory = analytics.inventory || {};
+  const orders = analytics.orders || {};
+
+  const totalProducts = inventory.total_products || 0;
+  const totalStock = inventory.total_stock || 0;
+  const reservedStock = inventory.reserved_stock || 0;
+  const availableStock = inventory.available_stock || 0;
+  const lowStockProducts = inventory.low_stock_products || 0;
+  const outOfStockProducts = inventory.out_of_stock_products || 0;
 
   const totalOrders = orders.total_orders || 0;
+  const completedOrders = orders.completed_orders || 0;
+  const fulfillmentRate = orders.fulfillment_rate || 0;
 
-  const created = orders.by_status?.CREATED || 0;
-  const allocated = orders.by_status?.ALLOCATED || 0;
-  const picking = orders.by_status?.PICKING || 0;
-  const packing = orders.by_status?.PACKING || 0;
-
-  const performance = [
-    {
-      name: "Created",
-      value: created,
-    },
-    {
-      name: "Allocated",
-      value: allocated,
-    },
-    {
-      name: "Picking",
-      value: picking,
-    },
-    {
-      name: "Packing",
-      value: packing,
-    },
-  ];
-
-  const fulfillmentRate =
-    orders.fulfillment_rate || 0;
-
-  const inventoryHealth =
-    inventory.total_products > 0
-      ? (
-          ((inventory.total_products -
-            inventory.low_stock_products -
-            inventory.out_of_stock_products) /
-            inventory.total_products) *
-          100
-        ).toFixed(1)
-      : 0;
-
-  const totalStock = inventory.total_stock || 0;
-  const availableStock = inventory.available_stock || 0;
+  const byStatus = orders.by_status || {};
+  const byPriority = orders.by_priority || {};
 
   return (
     <div className="module-page">
-
       <ModuleHeader
         eyebrow="WAREHOUSE ANALYTICS"
         title="Analytics"
         description="Monitor warehouse performance and operational trends."
       />
 
-      {/* Top metrics */}
-
-      <div className="module-stats">
-
-        <div className="module-stat">
-          <TrendingUp size={20} />
-          <span>Order Fulfillment</span>
-          <strong>
-            {fulfillmentRate.toFixed(1)}%
-          </strong>
-
-          <small className="analytics-change">
-            LIVE
-          </small>
+      {/* INVENTORY OVERVIEW */}
+      <div className="analytics-section">
+        <div className="section-heading">
+          <div>
+            <span className="section-eyebrow">
+              INVENTORY OVERVIEW
+            </span>
+            <h2>Warehouse Inventory</h2>
+          </div>
         </div>
 
-        <div className="module-stat">
-          <Package size={20} />
-          <span>Inventory Health</span>
-          <strong>
-            {inventoryHealth}%
-          </strong>
+        <div className="analytics-grid">
+          <div className="analytics-card">
+            <div className="analytics-card-icon">
+              <Package size={22} />
+            </div>
 
-          <small className="analytics-change">
-            LIVE
-          </small>
+            <div>
+              <span>Total Products</span>
+              <strong>{totalProducts}</strong>
+            </div>
+          </div>
+
+          <div className="analytics-card">
+            <div className="analytics-card-icon">
+              <Package size={22} />
+            </div>
+
+            <div>
+              <span>Total Stock</span>
+              <strong>{totalStock}</strong>
+            </div>
+          </div>
+
+          <div className="analytics-card">
+            <div className="analytics-card-icon">
+              <ShoppingCart size={22} />
+            </div>
+
+            <div>
+              <span>Reserved Stock</span>
+              <strong>{reservedStock}</strong>
+            </div>
+          </div>
+
+          <div className="analytics-card">
+            <div className="analytics-card-icon">
+              <Truck size={22} />
+            </div>
+
+            <div>
+              <span>Available Stock</span>
+              <strong>{availableStock}</strong>
+            </div>
+          </div>
         </div>
-
-        <div className="module-stat">
-          <ShoppingCart size={20} />
-          <span>Total Orders</span>
-          <strong>
-            {totalOrders}
-          </strong>
-
-          <small className="analytics-change">
-            ACTIVE
-          </small>
-        </div>
-
-        <div className="module-stat">
-          <Truck size={20} />
-          <span>Available Stock</span>
-          <strong>
-            {availableStock}
-          </strong>
-
-          <small className="analytics-change">
-            UNITS
-          </small>
-        </div>
-
       </div>
 
-      {/* Main analytics */}
-
-      <div className="analytics-grid">
-
-        {/* Fulfillment pipeline */}
-
-        <div className="module-panel">
-
-          <div className="module-panel-header">
-
-            <div>
-              <h2>Fulfillment Pipeline</h2>
-              <p>
-                Current order progression
-              </p>
-            </div>
-
-            <BarChart3 size={22} />
-
+      {/* STOCK HEALTH */}
+      <div className="analytics-section">
+        <div className="section-heading">
+          <div>
+            <span className="section-eyebrow">
+              STOCK HEALTH
+            </span>
+            <h2>Inventory Risk</h2>
           </div>
-
-          <div className="analytics-bars">
-
-            {performance.map((item) => {
-
-              const percentage =
-                totalOrders > 0
-                  ? (item.value / totalOrders) * 100
-                  : 0;
-
-              return (
-                <div
-                  className="analytics-bar-row"
-                  key={item.name}
-                >
-
-                  <div className="analytics-bar-label">
-
-                    <span>
-                      {item.name}
-                    </span>
-
-                    <strong>
-                      {item.value}
-                    </strong>
-
-                  </div>
-
-                  <div className="analytics-track">
-
-                    <div
-                      className="analytics-fill"
-                      style={{
-                        width: `${percentage}%`,
-                      }}
-                    ></div>
-
-                  </div>
-
-                </div>
-              );
-            })}
-
-          </div>
-
         </div>
 
-        {/* Operational summary */}
-
-        <div className="module-panel">
-
-          <div className="module-panel-header">
-
-            <div>
-              <h2>
-                Operational Summary
-              </h2>
-
-              <p>
-                Live warehouse activity
-              </p>
+        <div className="analytics-grid">
+          <div className="analytics-card">
+            <div className="analytics-card-icon">
+              <TrendingUp size={22} />
             </div>
 
+            <div>
+              <span>Low Stock Products</span>
+              <strong>{lowStockProducts}</strong>
+            </div>
           </div>
 
-          <div className="analytics-summary">
-
-            <div>
-              <Package size={20} />
-
-              <span>
-                Total Stock
-              </span>
-
-              <strong>
-                {totalStock}
-              </strong>
+          <div className="analytics-card">
+            <div className="analytics-card-icon">
+              <AlertTriangle size={22} />
             </div>
 
             <div>
-              <Package size={20} />
-
-              <span>
-                Available Stock
-              </span>
-
-              <strong>
-                {availableStock}
-              </strong>
+              <span>Out of Stock</span>
+              <strong>{outOfStockProducts}</strong>
             </div>
-
-            <div>
-              <ShoppingCart size={20} />
-
-              <span>
-                Total Orders
-              </span>
-
-              <strong>
-                {totalOrders}
-              </strong>
-            </div>
-
-            <div>
-              <Truck size={20} />
-
-              <span>
-                Completed Orders
-              </span>
-
-              <strong>
-                {orders.completed_orders || 0}
-              </strong>
-            </div>
-
           </div>
-
         </div>
-
       </div>
 
-      {/* Performance overview */}
-
-      <div className="module-panel">
-
-        <div className="module-panel-header">
-
+      {/* ORDER OVERVIEW */}
+      <div className="analytics-section">
+        <div className="section-heading">
           <div>
-            <h2>
-              Performance Overview
-            </h2>
-
-            <p>
-              Key warehouse indicators
-            </p>
+            <span className="section-eyebrow">
+              ORDER PERFORMANCE
+            </span>
+            <h2>Fulfillment Overview</h2>
           </div>
-
-          <span className="module-badge">
-            LIVE METRICS
-          </span>
-
         </div>
 
-        <table className="module-table">
+        <div className="analytics-grid">
+          <div className="analytics-card">
+            <div className="analytics-card-icon">
+              <ShoppingCart size={22} />
+            </div>
 
-          <thead>
+            <div>
+              <span>Total Orders</span>
+              <strong>{totalOrders}</strong>
+            </div>
+          </div>
 
-            <tr>
-              <th>METRIC</th>
-              <th>CURRENT</th>
-              <th>TARGET</th>
-              <th>STATUS</th>
-            </tr>
+          <div className="analytics-card">
+            <div className="analytics-card-icon">
+              <Package size={22} />
+            </div>
 
-          </thead>
+            <div>
+              <span>Completed Orders</span>
+              <strong>{completedOrders}</strong>
+            </div>
+          </div>
 
-          <tbody>
+          <div className="analytics-card">
+            <div className="analytics-card-icon">
+              <BarChart3 size={22} />
+            </div>
 
-            <tr>
-              <td>
-                Order Fulfillment
-              </td>
-
-              <td>
-                {fulfillmentRate.toFixed(1)}%
-              </td>
-
-              <td>
-                90%
-              </td>
-
-              <td>
-                <span className="module-badge">
-                  {fulfillmentRate >= 90
-                    ? "Healthy"
-                    : "Needs Attention"}
-                </span>
-              </td>
-            </tr>
-
-            <tr>
-              <td>
-                Inventory Health
-              </td>
-
-              <td>
-                {inventoryHealth}%
-              </td>
-
-              <td>
-                90%
-              </td>
-
-              <td>
-                <span className="module-badge">
-                  {Number(inventoryHealth) >= 90
-                    ? "Healthy"
-                    : "Needs Attention"}
-                </span>
-              </td>
-            </tr>
-
-            <tr>
-              <td>
-                Stock Availability
-              </td>
-
-              <td>
-                {totalStock > 0
-                  ? (
-                      (availableStock /
-                        totalStock) *
-                      100
-                    ).toFixed(1)
-                  : 0}
-                %
-              </td>
-
-              <td>
-                80%
-              </td>
-
-              <td>
-                <span className="module-badge">
-                  {totalStock > 0 &&
-                  (availableStock /
-                    totalStock) *
-                    100 >=
-                    80
-                    ? "Healthy"
-                    : "Needs Attention"}
-                </span>
-              </td>
-            </tr>
-
-          </tbody>
-
-        </table>
-
+            <div>
+              <span>Fulfillment Rate</span>
+              <strong>{fulfillmentRate}%</strong>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Priority breakdown */}
-
-      <div className="module-panel">
-
-        <div className="module-panel-header">
-
+      {/* ORDER STATUS */}
+      <div className="analytics-section">
+        <div className="section-heading">
           <div>
-            <h2>
-              Order Priority Distribution
-            </h2>
-
-            <p>
-              Current orders by priority
-            </p>
+            <span className="section-eyebrow">
+              ORDER STATUS
+            </span>
+            <h2>Orders by Status</h2>
           </div>
-
         </div>
 
-        <div className="analytics-summary">
+        <div className="analytics-list">
+          {Object.entries(byStatus).map(([status, count]) => (
+            <div
+              className="analytics-list-row"
+              key={status}
+            >
+              <span>{status}</span>
+              <strong>{count}</strong>
+            </div>
+          ))}
 
-          <div>
-            <span>
-              Urgent
-            </span>
-
-            <strong>
-              {orders.by_priority?.URGENT || 0}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              High
-            </span>
-
-            <strong>
-              {orders.by_priority?.HIGH || 0}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              Normal
-            </span>
-
-            <strong>
-              {orders.by_priority?.NORMAL || 0}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              Low
-            </span>
-
-            <strong>
-              {orders.by_priority?.LOW || 0}
-            </strong>
-          </div>
-
+          {Object.keys(byStatus).length === 0 && (
+            <div className="analytics-empty">
+              No order status data available.
+            </div>
+          )}
         </div>
-
       </div>
 
+      {/* ORDER PRIORITY */}
+      <div className="analytics-section">
+        <div className="section-heading">
+          <div>
+            <span className="section-eyebrow">
+              ORDER PRIORITY
+            </span>
+            <h2>Orders by Priority</h2>
+          </div>
+        </div>
+
+        <div className="analytics-list">
+          {Object.entries(byPriority).map(
+            ([priority, count]) => (
+              <div
+                className="analytics-list-row"
+                key={priority}
+              >
+                <span>{priority}</span>
+                <strong>{count}</strong>
+              </div>
+            )
+          )}
+
+          {Object.keys(byPriority).length === 0 && (
+            <div className="analytics-empty">
+              No priority data available.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
