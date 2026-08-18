@@ -8,7 +8,7 @@ import {
 import axios from "axios";
 import ModuleHeader from "../components/ModuleHeader";
 
-const API_URL = "http://127.0.0.1:8000";
+import API_URL from "../config";
 
 function Fulfillment() {
   const [orders, setOrders] = useState([]);

@@ -17,7 +17,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import "../App.css";
 
-const API_URL = "http://127.0.0.1:8000";
+import API_URL from "../config";
 
 function Dashboard() {
   const navigate = useNavigate();
